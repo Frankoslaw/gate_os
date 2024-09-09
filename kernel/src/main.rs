@@ -1,8 +1,17 @@
 #![no_std]
 #![no_main]
+#![cfg_attr(test, no_main)]
+#![feature(custom_test_frameworks)]
+#![feature(abi_x86_interrupt)]
+#![feature(naked_functions)]
+#![feature(alloc_error_handler)]
+#![feature(const_mut_refs)]
 
 mod debug;
+mod exception_handlers;
 mod framebuffer;
+mod gdt;
+mod idt;
 mod logger;
 
 extern crate lazy_static;
@@ -25,28 +34,31 @@ unsafe extern "C" fn kmain() -> ! {
     if let Some(framebuffer_response) = FRAMEBUFFER_REQUEST.get_response() {
         let framebuffer = match framebuffer_response.framebuffers().next() {
             Some(i) => i,
-            None => halt_loop(),
+            None => hlt_loop(),
         };
 
         framebuffer::init(&framebuffer);
     }
 
     logger::init();
+    gdt::init();
+    idt::init();
 
     println!();
+
     log::info!("Hello world from Gate OS :D");
 
-    halt_loop();
+    hlt_loop();
 }
 
 #[cfg(not(test))]
 #[panic_handler]
 fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
-    halt_loop();
+    hlt_loop();
 }
 
 #[inline(always)]
-pub fn halt_loop() -> ! {
+pub fn hlt_loop() -> ! {
     loop {
         x86_64::instructions::hlt();
     }

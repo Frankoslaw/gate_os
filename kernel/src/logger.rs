@@ -41,4 +41,6 @@ pub fn init() {
 
     log::set_logger(logger).expect("logger already set");
     log::set_max_level(LOG_LEVEL);
+
+    log::trace!("Logger initialized")
 }

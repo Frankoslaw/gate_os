@@ -21,7 +21,6 @@ pub fn init(info: &Framebuffer) {
     let mut display = DISPLAY.lock();
     display.configure(info);
     display.clear();
-    display.write_fmt(format_args!("[FB] Initialized")).unwrap();
 }
 
 #[doc(hidden)]
