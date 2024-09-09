@@ -1,7 +1,11 @@
 #![no_std]
 #![no_main]
 
-use core::arch::asm;
+mod debug;
+mod framebuffer;
+mod logger;
+
+extern crate lazy_static;
 
 use limine::request::FramebufferRequest;
 use limine::BaseRevision;
@@ -19,24 +23,34 @@ unsafe extern "C" fn kmain() -> ! {
     assert!(BASE_REVISION.is_supported());
 
     if let Some(framebuffer_response) = FRAMEBUFFER_REQUEST.get_response() {
-        if let Some(framebuffer) = framebuffer_response.framebuffers().next() {
-            // HERE YOU CAN USE FRAMEBUFFER
-        }
+        let framebuffer = match framebuffer_response.framebuffers().next() {
+            Some(i) => i,
+            None => halt_loop(),
+        };
+
+        framebuffer::init(&framebuffer);
     }
 
-    hcf();
+    logger::init();
+
+    println!();
+    log::info!("Hello world from Gate OS :D");
+
+    halt_loop();
 }
 
+#[cfg(not(test))]
 #[panic_handler]
 fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
-    hcf();
+    halt_loop();
 }
 
-fn hcf() -> ! {
-    unsafe {
-        asm!("cli");
-        loop {
-            asm!("hlt");
-        }
+#[inline(always)]
+pub fn halt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
     }
 }
+
+pub use x86_64::instructions::interrupts::disable as disable_interrupts;
+pub use x86_64::instructions::interrupts::without_interrupts;
