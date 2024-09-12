@@ -16,7 +16,12 @@ mod logger;
 
 extern crate lazy_static;
 
+use core::mem::transmute;
+
+use limine::memory_map::EntryType;
 use limine::request::FramebufferRequest;
+use limine::request::KernelAddressRequest;
+use limine::request::MemoryMapRequest;
 use limine::BaseRevision;
 
 #[used]
@@ -26,6 +31,14 @@ static BASE_REVISION: BaseRevision = BaseRevision::new();
 #[used]
 #[link_section = ".requests"]
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
+
+#[used]
+#[link_section = ".requests"]
+static MEMORY_MAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
+
+#[used]
+#[link_section = ".requests"]
+static KERNEL_ADDRESS_REQUEST: KernelAddressRequest = KernelAddressRequest::new();
 
 #[no_mangle]
 unsafe extern "C" fn kmain() -> ! {
@@ -41,12 +54,39 @@ unsafe extern "C" fn kmain() -> ! {
     }
 
     logger::init();
+
     gdt::init();
     idt::init();
 
+    disable_interrupts();
+
     println!();
 
-    log::info!("Hello world from Gate OS :D");
+    if let Some(kernel_adress) = KERNEL_ADDRESS_REQUEST.get_response() {
+        log::trace!(
+            "Kernel addr - Phys base: {:X}   Virt: {:X}   Rev: {}",
+            kernel_adress.physical_base(),
+            kernel_adress.virtual_base(),
+            kernel_adress.revision()
+        );
+    }
+
+    println!();
+
+    if let Some(memory_map) = MEMORY_MAP_REQUEST.get_response() {
+        let entries_count = memory_map.entries().len();
+        log::trace!("Total number of entries: {}", entries_count);
+
+        for (i, entry) in memory_map.entries().iter().enumerate() {
+            log::trace!("Processing entry {}", i);
+
+            log::trace!("Entry - Base: {:X}   Len: {:X}", entry.base, entry.length);
+        }
+    }
+
+    println!();
+
+    println!("Finished");
 
     hlt_loop();
 }
