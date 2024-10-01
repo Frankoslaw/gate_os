@@ -1,6 +1,7 @@
 use core::fmt;
 use core::fmt::Write;
 use lazy_static::lazy_static;
+use owo_colors::OwoColorize;
 use spin::Mutex;
 use uart_16550::SerialPort;
 use vte::{Params, Parser, Perform};
@@ -123,6 +124,7 @@ macro_rules! dbg {
 
 pub fn init() {
     SERIAL.lock().init();
+    println!("{}: {}", "[TRACE]".yellow(), "Serial initialized");
     // sys::idt::set_irq_handler(4, interrupt_handler);
 }
 
