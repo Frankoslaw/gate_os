@@ -1,8 +1,12 @@
 #![no_std]
 #![no_main]
 
-mod console;
-mod kdebug;
+#[macro_use]
+mod serial;
+
+use owo_colors::OwoColorize;
+pub use serial::_print;
+use x86_64::registers::model_specific::Msr;
 
 use core::arch::asm;
 
@@ -23,15 +27,24 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 unsafe extern "C" fn kmain() -> ! {
     assert!(BASE_REVISION.is_supported());
 
-    let a: u32 = 19;
-    dbg!(a);
+    e9::println!("e9 works :D");
+
+    serial::init();
+    set_pid(0);
+
+    println!("{}: {}", "[INFO]".bright_green(), "GateOS (neo-0.1.0)");
+    println!("3250 decimal is {:o} octal!", 3250);
 
     hcf();
 }
 
 #[cfg(not(test))]
 #[panic_handler]
-fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
+fn rust_panic(info: &core::panic::PanicInfo) -> ! {
+    e9::println!("{}", "[PANIC]:".red());
+    e9::dbg!(info);
+    println!("{}", "[PANIC]:".red());
+    dbg!(info);
     hcf();
 }
 
@@ -44,4 +57,9 @@ fn hcf() -> ! {
     }
 }
 
-pub use kdebug::_print;
+fn set_pid(pid: u64) {
+    let mut msr = Msr::new(0xc0000103);
+    unsafe {
+        msr.write(pid);
+    }
+}

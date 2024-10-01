@@ -1,4 +1,15 @@
-use crate::console::write_byte;
+#![no_std]
+
+fn write_byte(b: u8) {
+    if b == b'\n' {
+        write_byte(b'\r');
+    }
+    unsafe {
+        core::arch::asm!(r#"
+        out 0e9h, al
+        "#, in("al") b);
+    }
+}
 
 #[doc(hidden)]
 pub fn _print(args: core::fmt::Arguments) {
@@ -49,7 +60,13 @@ macro_rules! dbg {
     ($val:expr) => {
         match $val {
             tmp => {
-                $crate::println!("[{}:{}] {} = {:#?}", file!(), line!(), stringify!($val), &tmp);
+                $crate::println!(
+                    "File: {} \nLine: {} \nExpression: {} \nValue: {:#?}",
+                    file!(),
+                    line!(),
+                    stringify!($val),
+                    &tmp
+                );
                 tmp
             }
         }
