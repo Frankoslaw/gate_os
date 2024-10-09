@@ -51,13 +51,13 @@ limine/limine:
 
 .PHONY: kernel
 kernel:
-	$(MAKE) -C kern
+	$(MAKE) -C kernel
 
 # Build ISO image
 $(IMAGE_NAME).iso: limine/limine kernel
 	rm -rf iso_root
 	mkdir -p iso_root/boot
-	cp -v kern/kernel iso_root/boot/
+	cp -v kernel/kernel iso_root/boot/
 	mkdir -p iso_root/boot/limine
 	cp -v limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/boot/limine/
 	mkdir -p iso_root/EFI/BOOT
@@ -79,25 +79,25 @@ $(IMAGE_NAME).hdd: limine/limine kernel
 	./limine/limine bios-install $(IMAGE_NAME).hdd
 	mformat -i $(IMAGE_NAME).hdd@@1M
 	mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
-	mcopy -i $(IMAGE_NAME).hdd@@1M kern/kernel ::/boot
+	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/kernel ::/boot
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTIA32.EFI ::/EFI/BOOT
 
 .PHONY: clean
 clean:
-	$(MAKE) -C kern clean
+	$(MAKE) -C kernel clean
 	rm -rf iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
 
 .PHONY: distclean
 distclean: clean
-	$(MAKE) -C kern distclean
+	$(MAKE) -C kernel distclean
 	rm -rf limine ovmf
 
 .PHONY: run-uefi-gdb
 run-uefi-gdb: ovmf/ovmf-code-x86_64.fd ovmf/ovmf-vars-x86_64.fd $(IMAGE_NAME).iso
-	tmux new-session -s debug-session -d \; \
+	tmux new-session -s debug-session \; \
+		set-option status off \; \
 		send-keys '$(MAKE) run-uefi QEMUFLAGS="-s -S -nographic -enable-kvm -cpu host -debugcon file:debug.log"' C-m \; \
 		split-window -h \; \
-		send-keys 'sleep 2; gdb -ex "target remote :1234" -ex "hb kmain" -ex "c" kern/kernel' C-m \; \
-		attach
+		send-keys 'gdb -ex "target remote :1234" -ex "hb kmain" -ex "c" kernel/kernel; tmux kill-session -t debug-session' C-m \;

@@ -1,0 +1,9 @@
+[package]
+name = "goalloc"
+version = "0.1.0"
+authors = ["snek"]
+edition = "2021"
+
+[dependencies]
+spin = "0.9.8"
+linked_list_allocator = "0.10.5"

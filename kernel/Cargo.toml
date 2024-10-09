@@ -1,9 +1,13 @@
-cargo-features = ["profile-rustflags"]
-
 [package]
 name = "limine-rust-template"
 version = "0.1.0"
 edition = "2021"
+
+[profile.dev]
+panic = 'abort'
+
+[profile.release]
+panic = 'abort'
 
 [dependencies]
 spin = "0.9"
@@ -15,6 +19,7 @@ log = "0.4.22"
 uart_16550 = "0.3.1"
 vte = "0.13.0"
 owo-colors = "4.1.0"
+goalloc = { path = "../crates/goalloc" }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 limine = "0.3.1"
@@ -28,9 +33,3 @@ acpi = "5.0.0"
 x2apic = "0.4"
 raw-cpuid = "11.2.0"
 e9 = { path = "../crates/e9" }
-
-[profile.dev]
-panic = 'abort'
-
-[profile.release]
-panic = 'abort'

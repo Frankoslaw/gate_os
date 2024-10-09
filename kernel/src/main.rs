@@ -21,6 +21,8 @@ extern crate lazy_static;
 #[macro_use]
 mod serial;
 mod gdt;
+// mod memory;
+mod allocator;
 mod stack_allocator;
 
 mod prelude {
@@ -81,15 +83,15 @@ unsafe extern "C" fn kmain() -> ! {
     let memmap = MEMMAP.get_response().unwrap().entries();
     let physical_memory_offset = HHDM.get_response().unwrap().offset();
 
+    // memory::init(physical_memory_offset, memmap);
+
+    // allocator::init();
+
     println!("{}: {}", "[INFO]".bright_green(), "GateOS (neo-0.1.0)");
     println!();
 
-    // panic!("DUPA");
+    println!("DUPA");
     println!("3250 decimal is {:o} octal!", 3250);
-
-    const STACK_SIZE: usize = 1024 * 128;
-    let stack = StackAllocator::<STACK_SIZE>::new();
-    dbg!(stack);
 
     hcf();
 }
