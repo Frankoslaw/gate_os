@@ -1,22 +1,47 @@
 #![no_std]
 #![no_main]
-
-#[macro_use]
-mod serial;
-mod gdt;
+#![allow(internal_features)]
+#![feature(abi_x86_interrupt)]
+#![feature(alloc_error_handler)]
+#![feature(prelude_import)]
+#![feature(naked_functions)]
+#![feature(const_mut_refs)]
+#![feature(never_type)]
+#![feature(asm_const)]
+#![feature(allocator_api)]
+#![feature(ptr_metadata)]
+#![feature(slice_ptr_get)]
+#![feature(panic_can_unwind)]
+#![feature(strict_provenance)]
+#![feature(trait_upcasting)]
 
 #[macro_use]
 extern crate lazy_static;
 
-use limine::memory_map::EntryType;
-use owo_colors::OwoColorize;
+#[macro_use]
+mod serial;
+mod gdt;
+mod stack_allocator;
+
+mod prelude {
+    pub use core::arch::{asm, global_asm};
+    pub use core::prelude::v1::*;
+    pub use owo_colors::OwoColorize;
+}
+
+#[prelude_import]
+#[allow(unused_imports)]
+use prelude::*;
+
+use raw_cpuid::CpuId;
 pub use serial::_print;
+use stack_allocator::StackAllocator;
 use x86_64::registers::model_specific::Msr;
 
-use core::arch::asm;
-use core::mem::transmute;
-
-use limine::request::{HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker};
+use limine::request::{
+    HhdmRequest, KernelAddressRequest, KernelFileRequest, MemoryMapRequest, RequestsEndMarker,
+    RequestsStartMarker, RsdpRequest,
+};
 use limine::BaseRevision;
 
 #[link_section = ".requests"]
@@ -26,7 +51,16 @@ static BASE_REVISION: BaseRevision = BaseRevision::new();
 static MEMMAP: MemoryMapRequest = MemoryMapRequest::new();
 
 #[link_section = ".requests"]
+static RSDP: RsdpRequest = RsdpRequest::new();
+
+#[link_section = ".requests"]
 static HHDM: HhdmRequest = HhdmRequest::new();
+
+#[link_section = ".requests"]
+static KERNEL_FILE: KernelFileRequest = KernelFileRequest::new();
+
+#[link_section = ".requests"]
+static KERNEL_ADDRESS: KernelAddressRequest = KernelAddressRequest::new();
 
 #[used]
 #[link_section = ".requests_start_marker"]
@@ -42,31 +76,20 @@ unsafe extern "C" fn kmain() -> ! {
     e9::println!("e9 works :D");
 
     serial::init();
-    set_pid(0);
-
     gdt::init();
 
     let memmap = MEMMAP.get_response().unwrap().entries();
-    for entry in memmap {
-        let entry_type = unsafe { transmute::<EntryType, u64>(entry.entry_type) };
-
-        println!(
-            "{}: Base: {:X}, Type: {:X}, Length: {:X}",
-            "[DEBUG]".cyan(),
-            entry.base,
-            entry_type,
-            entry.length
-        )
-    }
-
     let physical_memory_offset = HHDM.get_response().unwrap().offset();
-
-    // After init
 
     println!("{}: {}", "[INFO]".bright_green(), "GateOS (neo-0.1.0)");
     println!();
 
+    // panic!("DUPA");
     println!("3250 decimal is {:o} octal!", 3250);
+
+    const STACK_SIZE: usize = 1024 * 128;
+    let stack = StackAllocator::<STACK_SIZE>::new();
+    dbg!(stack);
 
     hcf();
 }
@@ -87,12 +110,5 @@ fn hcf() -> ! {
             #[cfg(target_arch = "x86_64")]
             asm!("hlt");
         }
-    }
-}
-
-fn set_pid(pid: u64) {
-    let mut msr = Msr::new(0xc0000103);
-    unsafe {
-        msr.write(pid);
     }
 }

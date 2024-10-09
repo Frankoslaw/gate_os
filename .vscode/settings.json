@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.check.allTargets": false,
+    "discord.enabled": true,
+    "prettier.tabWidth": 4
+}

@@ -5,9 +5,8 @@ MAKEFLAGS += -rR
 # Convenience macro to reliably declare user overridable variables.
 override USER_VARIABLE = $(if $(filter $(origin $(1)),default undefined),$(eval override $(1) := $(2)))
 
-# Default user QEMU flags. These are appended to the QEMU command calls.
-$(call USER_VARIABLE,QEMUFLAGS,-m 128M -debugcon file:debug.log -nographic)
-
+# Default user QEMU flags.
+$(call USER_VARIABLE,QEMUFLAGS,-enable-kvm -cpu host -m 128M -smp 4 -debugcon file:debug.log -nographic )
 override IMAGE_NAME := template
 
 .PHONY: all
@@ -15,14 +14,6 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: all-hdd
 all-hdd: $(IMAGE_NAME).hdd
-
-.PHONY: run
-run: $(IMAGE_NAME).iso
-	qemu-system-x86_64 \
-		-M q35 \
-		-cdrom $(IMAGE_NAME).iso \
-		-boot d \
-		$(QEMUFLAGS)
 
 .PHONY: run-uefi
 run-uefi: ovmf/ovmf-code-x86_64.fd ovmf/ovmf-vars-x86_64.fd $(IMAGE_NAME).iso
@@ -34,13 +25,6 @@ run-uefi: ovmf/ovmf-code-x86_64.fd ovmf/ovmf-vars-x86_64.fd $(IMAGE_NAME).iso
 		-boot d \
 		$(QEMUFLAGS)
 
-.PHONY: run-hdd
-run-hdd: $(IMAGE_NAME).hdd
-	qemu-system-x86_64 \
-		-M q35 \
-		-hda $(IMAGE_NAME).hdd \
-		$(QEMUFLAGS)
-
 .PHONY: run-hdd-uefi
 run-hdd-uefi: ovmf/ovmf-code-x86_64.fd ovmf/ovmf-vars-x86_64.fd $(IMAGE_NAME).hdd
 	qemu-system-x86_64 \
@@ -50,6 +34,7 @@ run-hdd-uefi: ovmf/ovmf-code-x86_64.fd ovmf/ovmf-vars-x86_64.fd $(IMAGE_NAME).hd
 		-hda $(IMAGE_NAME).hdd \
 		$(QEMUFLAGS)
 
+# Download OVMF firmware files
 ovmf/ovmf-code-x86_64.fd:
 	mkdir -p ovmf
 	curl -Lo $@ https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-code-x86_64.fd
@@ -58,6 +43,7 @@ ovmf/ovmf-vars-x86_64.fd:
 	mkdir -p ovmf
 	curl -Lo $@ https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-vars-x86_64.fd
 
+# Clone and build Limine bootloader
 limine/limine:
 	rm -rf limine
 	git clone https://github.com/limine-bootloader/limine.git --branch=v8.x-binary --depth=1
@@ -67,6 +53,7 @@ limine/limine:
 kernel:
 	$(MAKE) -C kern
 
+# Build ISO image
 $(IMAGE_NAME).iso: limine/limine kernel
 	rm -rf iso_root
 	mkdir -p iso_root/boot
@@ -84,6 +71,7 @@ $(IMAGE_NAME).iso: limine/limine kernel
 	./limine/limine bios-install $(IMAGE_NAME).iso
 	rm -rf iso_root
 
+# Build HDD image
 $(IMAGE_NAME).hdd: limine/limine kernel
 	rm -f $(IMAGE_NAME).hdd
 	dd if=/dev/zero bs=1M count=0 seek=64 of=$(IMAGE_NAME).hdd
@@ -98,10 +86,18 @@ $(IMAGE_NAME).hdd: limine/limine kernel
 
 .PHONY: clean
 clean:
-	$(MAKE) -C kernel clean
+	$(MAKE) -C kern clean
 	rm -rf iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
 
 .PHONY: distclean
 distclean: clean
-	$(MAKE) -C kernel distclean
+	$(MAKE) -C kern distclean
 	rm -rf limine ovmf
+
+.PHONY: run-uefi-gdb
+run-uefi-gdb: ovmf/ovmf-code-x86_64.fd ovmf/ovmf-vars-x86_64.fd $(IMAGE_NAME).iso
+	tmux new-session -s debug-session -d \; \
+		send-keys '$(MAKE) run-uefi QEMUFLAGS="-s -S -nographic -enable-kvm -cpu host -debugcon file:debug.log"' C-m \; \
+		split-window -h \; \
+		send-keys 'sleep 2; gdb -ex "target remote :1234" -ex "hb kmain" -ex "c" kern/kernel' C-m \; \
+		attach
